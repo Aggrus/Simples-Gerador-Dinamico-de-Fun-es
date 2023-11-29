@@ -9,9 +9,9 @@ void paramMatch (unsigned char *codigo, int paramNew, int paramOrig, int *pos);
 void addBytes(unsigned char *bytes, int size, unsigned char *codigo, int *pos);
 void setParamOrigToFix(unsigned char *codigo, TipoValor tpVal, void *valor, unsigned int paramOrig, int *pos);
 void callInstruction (void *f, unsigned char *codigo, int *pos);
-void addByteToStringAtLen (unsigned char *string, int paramOrig, int len);
-void movAbsQ (unsigned char *bytes, void *valor, int size, int paramOrig);
-
+void addByteToStringAtLen (unsigned char *string, int paramOrig, int len, int isAbs);
+void movQ (unsigned char *bytes, void *valor, int size, int paramOrig, int isAbs);
+void setParamsToRegisters(unsigned char *codigo, int *pos);
 
 int getPos ();
 void printCodigo (unsigned char *codigo, int pos);
@@ -43,6 +43,9 @@ void cria_func (void* f, DescParam params[], int n, unsigned char codigo[])
     absPos = pos;
     initFunc(codigo, &pos);
     printf("Init: \n");
+    printCodigo(codigo, pos);
+    setParamsToRegisters(codigo, &pos); //guarda valor de parametros em r8,9, e 10 respectivamente
+    printf("paramsToRegisters: \n");
     printCodigo(codigo, pos);
     unsigned char paramNew = 0;
     for (int paramOrig = 0; paramOrig < n; paramOrig++)
@@ -108,17 +111,17 @@ void paramMatch (unsigned char *codigo, int paramNew, int paramOrig, int *pos)
         unsigned char *moveParam;
         if (paramNew == 0 && paramOrig == 1)
         {
-            unsigned char temp[] = { 0x48, 0x89, 0xf7 };
+            unsigned char temp[] = { 0x4c, 0x89, 0xc6 }; //mov %r8, %rsi
             moveParam = temp;
         }
-        else if (paramNew == 0 && paramOrig == 2)
+        else if (paramNew == 0 && paramOrig == 2) 
         {
-            unsigned char temp[] = { 0x48, 0x89, 0xd7 };
+            unsigned char temp[] = { 0x4c, 0x89, 0xc2 }; //mov %r8, %rdx
             moveParam = temp;
         }
         else if (paramNew == 1 && paramOrig == 2)
         {
-            unsigned char temp[] = { 0x48, 0x89, 0xd6 };
+            unsigned char temp[] = { 0x4c, 0x89, 0xca }; //mov %r9, %rdx
             moveParam = temp;
         }
         addBytes(moveParam, 3, codigo, pos);
@@ -141,18 +144,19 @@ void setParamOrigToFix(unsigned char *codigo, TipoValor tpVal, void *valor, unsi
     {
         size = 10;
         setFixBytes = realloc(setFixBytes, size);
-        movAbsQ (setFixBytes, valor, size, paramOrig);
+        movQ (setFixBytes, valor, size, paramOrig, 1);
         //
         printf("\nvalor: %p (%s)\n", valor, (unsigned char *)valor);
         //
     }
     else if (tpVal == INT_PAR)
     {
+        //movl $valor, %edi/%esi/%edx
         size = 5;
         setFixBytes = realloc(setFixBytes, size);
         int *val = (int *)(setFixBytes + 1);
         *val = *((int *) valor);
-        addByteToStringAtLen (setFixBytes, paramOrig, 0);
+        addByteToStringAtLen (setFixBytes, paramOrig, 0, 1);
     }
     else
     {
@@ -167,49 +171,49 @@ void setParamOrigToFix(unsigned char *codigo, TipoValor tpVal, void *valor, unsi
 void callInstruction (void *f, unsigned char *codigo, int *pos)
 {
     int size = 10;
-    movAbsQ (codigo + *pos, f, size, 3);
+    movQ (codigo + *pos, f, size, 3, 1); 
     *pos += size;
     unsigned char callRcx[] = {0xff, 0xd1};
     addBytes(callRcx, 2, codigo, pos);
     /* addByteAtPos(codigo, 0xe8, pos);
     int *drift = (int *)(codigo + *pos);
     *drift = f - ((void *)(codigo + *pos + 4)); */
-    printf("foo: %p, codigo: %p, leave: %p\n", f, codigo, (codigo + *pos));
+    //printf("foo: %p, codigo: %p, leave: %p\n", f, codigo, (codigo + *pos));
     //*pos += 4;
 }
 
 //Adds machine code for mov for rdi/rsi/rdx
-void addByteToStringAtLen (unsigned char *string, int paramOrig, int len)
+void addByteToStringAtLen (unsigned char *string, int paramOrig, int len, int isAbs)
 {
     switch (paramOrig)
+    {
+        case 0:
         {
-            case 0:
-            {
-                string[len] = (unsigned char)0xbf;
-                break;
-            }
-            case 1:
-            {
-                string[len] = (unsigned char)0xbe;
-                break;
-            }
-            case 2:
-            {
-                string[len] = (unsigned char)0xba;
-                break;
-            }
-            case 3:
-            {
-                string[len] = (unsigned char)0xb9;
-                break;
-            }
-            default:
-            {
-                printf("PTR_PARAM %d parameter error: non-existent parameter!!", paramOrig);
-                free(string);
-                exit(1);
-            }
+            string[len] = (unsigned char)(isAbs?0xbf:0xc7); //rdi
+            break;
         }
+        case 1:
+        {
+            string[len] = (unsigned char)(isAbs?0xbe:0xc6); //rsi
+            break;
+        }
+        case 2:
+        {
+            string[len] = (unsigned char)(isAbs?0xba:0xc2); //rdx
+            break;
+        }
+        case 3:
+        {
+            string[len] = (unsigned char)(isAbs?0xb9:0xc1); //rcx
+            break;
+        }
+        default:
+        {
+            printf("PTR_PARAM %d parameter error: non-existent parameter!!", paramOrig);
+            free(string);
+            exit(1);
+        }
+    }
 }
 
 
@@ -227,13 +231,21 @@ void printCodigo (unsigned char *codigo, int pos)
     printf("\n");
 }
 
-void movAbsQ (unsigned char *bytes, void *valor, int size, int paramOrig)
+
+void movQ (unsigned char *bytes, void *valor, int size, int paramOrig, int isAbs)
 {
     bytes[0] = 0x48;
-    for (int i = 2; i < size; i++)
-    {
-        unsigned char temp = (((unsigned char *)&valor)[i - 2]);
-        bytes[i] = temp;
-    }
-    addByteToStringAtLen (bytes, paramOrig, 1);
+
+    *((void **) (bytes + 2)) = valor;
+    addByteToStringAtLen (bytes, paramOrig, 1, isAbs);
+}
+
+void setParamsToRegisters(unsigned char *codigo, int *pos)
+{
+    unsigned char paramsToRegisters[] = {
+        0x49, 0x89, 0xf8, //movq %rdi, %r8
+        0x49, 0x89, 0xf1, //movq %rdi, %r9
+        0x49, 0x89, 0xd2 //movq %rdi, %r10
+    };
+    addBytes(paramsToRegisters, 9, codigo, pos);
 }
