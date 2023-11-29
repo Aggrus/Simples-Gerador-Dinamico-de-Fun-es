@@ -1,1 +1,1 @@
-# Simples-Gerador-Dinamico-de-Fun-es
+# Simples-Gerador-Dinamico-de-Funcoes
