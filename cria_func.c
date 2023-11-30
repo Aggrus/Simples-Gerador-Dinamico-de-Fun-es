@@ -75,18 +75,42 @@ void cria_func (void* f, DescParam params[], int n, unsigned char codigo[])
         }
         else if (param.orig_val == IND)
         {
-            //TODO: IND processing
+            printf("IND: \n");
+            if (param.tipo_val == PTR_PAR)
+            {
+                void *val;
+                val = param.valor.v_ptr;
+                setParamOrigToFix(codigo, param.tipo_val, val, paramOrig, &pos);
+                printCodigo(codigo, pos);
+            }
+            else if (param.tipo_val == INT_PAR)
+            {
+                unsigned char movAddr[10]; 
+                printf("Valor: %p (%d)\n",param.valor.v_ptr, *((int *)param.valor.v_ptr));
+                movQ(movAddr, param.valor.v_ptr, 10, 5, 1);
+                addBytes(movAddr, 10, codigo, &pos);
+                unsigned char bytes[] = {0x8b, 0x00};
+                if (paramOrig == 0)
+                {
+                    bytes[1] = 0x38;
+                }
+                else if (paramOrig == 1)
+                {
+                    bytes[1] = 0x30;
+                }
+                else if (paramOrig == 2)
+                {
+                    bytes[1] = 0x10;
+                }
+                
+                addBytes(bytes, 2, codigo, &pos);
+                printCodigo(codigo, pos);
+            }
         }
     }
     callInstruction (f, codigo, &pos);
-    printf("call: \n");
-    printCodigo(codigo, pos);
     addByteAtPos(codigo, 0xc9, &pos);    //leave
-    printf("leave: \n");
-    printCodigo(codigo, pos);
     addByteAtPos(codigo, 0xc3, &pos);    //ret
-    printf("ret: \n");
-    printCodigo(codigo, pos);
     absPos = pos;
 }
 
@@ -116,12 +140,12 @@ void paramMatch (unsigned char *codigo, int paramNew, int paramOrig, int *pos)
         }
         else if (paramNew == 0 && paramOrig == 2) 
         {
-            unsigned char temp[] = { 0x4c, 0x89, 0xc2 }; //mov %r8, %rdx
+            unsigned char temp[] = { 0x4c, 0x89, 0xc2 }; //mov %r9, %rdx
             moveParam = temp;
         }
         else if (paramNew == 1 && paramOrig == 2)
         {
-            unsigned char temp[] = { 0x4c, 0x89, 0xca }; //mov %r9, %rdx
+            unsigned char temp[] = { 0x4c, 0x89, 0xca }; //mov %r10, %rdx
             moveParam = temp;
         }
         addBytes(moveParam, 3, codigo, pos);
@@ -205,6 +229,11 @@ void addByteToStringAtLen (unsigned char *string, int paramOrig, int len, int is
         case 3:
         {
             string[len] = (unsigned char)(isAbs?0xb9:0xc1); //rcx
+            break;
+        }
+        case 5:
+        {
+            string[len] = (unsigned char)(isAbs?0xb8:0xc0); //rax
             break;
         }
         default:
