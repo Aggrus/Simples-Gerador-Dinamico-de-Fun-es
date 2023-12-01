@@ -54,7 +54,7 @@ int main (void) {
 
     params[1].tipo_val = INT_PAR; /* o segundo parâmetro de mult é int */
     params[1].orig_val = FIX;     /* a nova função passa para mult a constante 10 */
-    params[1].valor.v_int = 10;
+    params[1].valor.v_int = 8;
 
     cria_func (mult, params, 2, codigo);
     f_mult = (func_ptr) codigo;   
@@ -62,17 +62,6 @@ int main (void) {
     for (i = 1; i <=10; i++) {
     printf("%d\n", f_mult(i)); /* a nova função só recebe um argumento */
     }
-    int sizeOfCodigo = getPos();
-    printf("Pos:%d\n", sizeOfCodigo);
-    for (int j = 0; j < sizeOfCodigo; j++)
-    {
-        if (j%10 == 0)
-        {
-            printf("\n");
-        }
-        printf("%02X ", codigo[j]);
-    }
-    printf("\n");
     return 0;
 }
 

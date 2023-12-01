@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "cria_func.h"
+#include "aux.h"
 
 #include <stdint.h>
 #include <sys/mman.h>
@@ -34,45 +35,35 @@ int execpage(void *ptr, size_t len) {
 	return 0;
 }
 
+typedef int (*func_ptr) (int x);
+typedef int (*func_ptr2) (int x, int y);
+typedef int (*func_ptr3) (int x, int y, int z);
 
-typedef int (*func_ptr) ();
-
-char fixa[] = "Era uma vez....\n%s";
-
-unsigned char codigo[120];
-
-int main (void) {
-  execpage(codigo, (size_t) 120);
-  DescParam params[2];
-  func_ptr print;
-  char s[] = "Uma historia\n";
-
-  params[0].tipo_val = PTR_PAR; 
-  params[0].orig_val = FIX;     
-  params[0].valor.v_ptr = fixa;
-
-  params[1].tipo_val = PTR_PAR; 
-  params[1].orig_val = IND;   
-  params[1].valor.v_ptr = s;
-  cria_func (printf, params, 2, codigo);
-  print = (func_ptr) codigo;
-  print();
-  for (int i =0;i < 10;i++)
-  {
-    s[i] = '.';
-    if (i == 3 || i == 7 || i == 10)
-    {
-      s[i] = '\n';
-    }
-  }
-  s[10] = 'F';
-  s[11] = 'I';
-  s[12] = 'M';
-  s[13] = '\n';
-  print();
-  return 0;
+int mult(int x, int y) {
+  return x * y;
 }
 
+unsigned char codigo[500];
+
+int main (void) {
+    execpage(codigo, (size_t) 500);
+    DescParam params[2];
+    func_ptr2 f_mult;
+    int i;
+    
+    params[0].tipo_val = INT_PAR; /* o primeiro parãmetro de mult é int */
+    params[0].orig_val = PARAM;   /* a nova função repassa seu parämetro */
+
+    params[1].tipo_val = INT_PAR; /* o segundo parâmetro de mult é int */
+    params[1].orig_val = PARAM;     /* a nova função passa para mult a constante 10 */
+
+    cria_func (mult, params, 2, codigo);
+    f_mult = (func_ptr2) codigo;
+
+    for (i = 1; i <=10; i++) {
+    printf("%d\n", f_mult(i, i+1)); /* a nova função só recebe um argumento */
+    }
+}
 
 #undef PAGE_START
 #undef PAGE_END

@@ -1,3 +1,4 @@
+/* Gustavo Zalcman - 1921124 */
 #include <stdio.h>
 #include <stdlib.h>
 #include "cria_func.h"
@@ -13,40 +14,13 @@ void addByteToStringAtLen (unsigned char *string, int paramOrig, int len, int is
 void movQ (unsigned char *bytes, void *valor, int size, int paramOrig, int isAbs);
 void setParamsToRegisters(unsigned char *codigo, int *pos);
 
-int getPos ();
 void printCodigo (unsigned char *codigo, int pos);
 
-unsigned int absPos = 0;
-
-
-//Passos:
-    //  - inicializar função (OK!)
-    //  - for n iterar params (1 a 3) 
-    //      - Se for PARAM:
-    //          - Botar o próximo parâmetro (ou o 1o se não tem nenhum ainda) como o próximo parâmetro de call (OK!)
-    //      - Se for FIX:
-    //          - Botar o valor fixo dado em params como o próximo parâmetro de call (Parcial)
-    //      - Se for IND:
-    //          - Checa se o tamanho é de int ou ponteiro, se for int retorna um erro
-    //          - Pega o valor dado como um endereço e usa o valor neste endereço como o próximo parâmetro de call
-    //  - call usando endereço dinâmico (Lab13)
-    //  - ret; leave;
-    // Zerar variável global de elemento de "código"
-
-    //Auxiliar:
-    //  - Função que adiciona instrução de código de máquina para "codigo" (usar variável para saber último elemento de código) (OK!)
-    //  - Função que pega deslocamento de call
-//
 void cria_func (void* f, DescParam params[], int n, unsigned char codigo[])
 {
     int pos = 0;
-    absPos = pos;
     initFunc(codigo, &pos);
-    printf("Init: \n");
-    printCodigo(codigo, pos);
     setParamsToRegisters(codigo, &pos); //guarda valor de parametros em r8,9, e 10 respectivamente
-    printf("paramsToRegisters: \n");
-    printCodigo(codigo, pos);
     unsigned char paramNew = 0;
     for (int paramOrig = 0; paramOrig < n; paramOrig++)
     {
@@ -54,8 +28,6 @@ void cria_func (void* f, DescParam params[], int n, unsigned char codigo[])
         if (param.orig_val == PARAM)
         {
             paramMatch(codigo, paramNew, paramOrig, &pos);
-            printf("PARAM: \n");
-            printCodigo(codigo, pos);
             paramNew++;
         }
         else if (param.orig_val == FIX)
@@ -70,23 +42,18 @@ void cria_func (void* f, DescParam params[], int n, unsigned char codigo[])
                 val = &(param.valor.v_int);
             }
             setParamOrigToFix(codigo, param.tipo_val, val, paramOrig, &pos);
-            printf("FIX: \n");
-            printCodigo(codigo, pos);
         }
         else if (param.orig_val == IND)
         {
-            printf("IND: \n");
             if (param.tipo_val == PTR_PAR)
             {
                 void *val;
                 val = param.valor.v_ptr;
                 setParamOrigToFix(codigo, param.tipo_val, val, paramOrig, &pos);
-                printCodigo(codigo, pos);
             }
             else if (param.tipo_val == INT_PAR)
             {
                 unsigned char movAddr[10]; 
-                printf("Valor: %p (%d)\n",param.valor.v_ptr, *((int *)param.valor.v_ptr));
                 movQ(movAddr, param.valor.v_ptr, 10, 5, 1);
                 addBytes(movAddr, 10, codigo, &pos);
                 unsigned char bytes[] = {0x8b, 0x00};
@@ -104,14 +71,13 @@ void cria_func (void* f, DescParam params[], int n, unsigned char codigo[])
                 }
                 
                 addBytes(bytes, 2, codigo, &pos);
-                printCodigo(codigo, pos);
             }
         }
     }
     callInstruction (f, codigo, &pos);
     addByteAtPos(codigo, 0xc9, &pos);    //leave
     addByteAtPos(codigo, 0xc3, &pos);    //ret
-    absPos = pos;
+    printCodigo(codigo, pos);
 }
 
 void addByteAtPos (unsigned char *codigo, char c, int *pos)
@@ -169,9 +135,6 @@ void setParamOrigToFix(unsigned char *codigo, TipoValor tpVal, void *valor, unsi
         size = 10;
         setFixBytes = realloc(setFixBytes, size);
         movQ (setFixBytes, valor, size, paramOrig, 1);
-        //
-        printf("\nvalor: %p (%s)\n", valor, (unsigned char *)valor);
-        //
     }
     else if (tpVal == INT_PAR)
     {
@@ -245,11 +208,6 @@ void addByteToStringAtLen (unsigned char *string, int paramOrig, int len, int is
     }
 }
 
-
-int getPos ()
-{
-    return absPos;
-}
 
 void printCodigo (unsigned char *codigo, int pos)
 {
